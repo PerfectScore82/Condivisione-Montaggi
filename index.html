@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prova 2 — Player Montaggio (YouTube)</title>
+<style>
+  :root {
+    --bg: #141416;
+    --panel: #1e1e22;
+    --panel-2: #26262c;
+    --border: #2e2e36;
+    --text: #e9e9ec;
+    --text-dim: #9a9aa3;
+    --accent: #4a9eff;
+    --accent-bg: rgba(74, 158, 255, 0.18);
+    --accent-bg-strong: rgba(74, 158, 255, 0.35);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  body { display: flex; flex-direction: column; }
+
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex: 0 0 auto;
+  }
+  header h1 {
+    margin: 0; font-size: 15px; font-weight: 600;
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  header .meta { color: var(--text-dim); font-size: 12px; }
+  header label {
+    display: flex; align-items: center; gap: 6px;
+    color: var(--text-dim); font-size: 12px;
+    cursor: pointer; user-select: none;
+  }
+  header input[type=checkbox] { accent-color: var(--accent); }
+
+  main { flex: 1; min-height: 0; display: flex; }
+
+  .player {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column;
+    background: #000;
+  }
+  .video-wrap {
+    flex: 1; min-height: 0;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  #ytplayer { width: 100%; height: 100%; }
+  .video-error {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; background: var(--bg);
+    text-align: center; padding: 24px;
+  }
+  .video-error.show { display: flex; }
+  .video-error p { color: var(--text-dim); margin: 0; max-width: 480px; }
+  .video-error code {
+    background: var(--panel-2); padding: 2px 6px; border-radius: 3px; font-size: 13px;
+  }
+
+  .transport {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px;
+    background: var(--panel); border-top: 1px solid var(--border);
+  }
+  .transport button {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border);
+    padding: 6px 12px; border-radius: 4px;
+    cursor: pointer; font: inherit; min-width: 44px;
+  }
+  .transport button:hover:not(:disabled) { background: var(--border); }
+  .transport button:disabled { opacity: 0.4; cursor: default; }
+  .transport .now {
+    flex: 1; min-width: 0;
+    color: var(--text-dim); font-size: 13px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    padding: 0 8px;
+  }
+  .transport .now b { color: var(--text); font-weight: 500; }
+
+  aside {
+    flex: 0 0 320px;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  aside h2 {
+    margin: 0; padding: 10px 14px;
+    font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    flex: 0 0 auto;
+  }
+  aside h2 .count { color: var(--text); margin-left: 6px; }
+  .tracks { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 0; }
+  .group-header {
+    padding: 10px 14px 4px;
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--accent);
+    border-top: 1px solid var(--border);
+  }
+  .group-header:first-child { border-top: none; }
+  .track {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 14px; cursor: pointer;
+    border-left: 3px solid transparent;
+  }
+  .track:hover { background: var(--panel-2); }
+  .track.active {
+    background: var(--accent-bg);
+    border-left-color: var(--accent);
+  }
+  .track .num {
+    flex: 0 0 auto; color: var(--text-dim);
+    font-variant-numeric: tabular-nums; font-size: 12px;
+    min-width: 24px; text-align: right;
+  }
+  .track.active .num { color: var(--accent); font-weight: 600; }
+  .track .label {
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 13px;
+  }
+  .track .dur {
+    flex: 0 0 auto; color: var(--text-dim);
+    font-variant-numeric: tabular-nums; font-size: 12px;
+  }
+  .track.cover .label { font-style: italic; color: var(--text-dim); }
+
+  @media (max-width: 720px) {
+    main { flex-direction: column; }
+    aside { flex: 1 1 auto; border-left: none; border-top: 1px solid var(--border); }
+    .player { flex: 0 0 auto; max-height: 50vh; }
+  }
+
+  .tracks::-webkit-scrollbar { width: 10px; }
+  .tracks::-webkit-scrollbar-track { background: var(--panel); }
+  .tracks::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+  .tracks::-webkit-scrollbar-thumb:hover { background: #3a3a44; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="pageTitle">Prova 2</h1>
+  <span class="meta" id="trackCounter">—</span>
+  <label title="Se attivo, alla fine di una traccia il player si ferma anziché passare alla successiva">
+    <input type="checkbox" id="stopAtEnd"> Stop a fine traccia
+  </label>
+</header>
+
+<main>
+  <div class="player">
+    <div class="video-wrap">
+      <div id="ytplayer"></div>
+      <div class="video-error" id="videoError">
+        <p>Impossibile caricare il video YouTube.<br>
+           Controlla l'ID inserito (<code id="errId"></code>) e la connessione.</p>
+      </div>
+    </div>
+    <div class="transport">
+      <button id="prevBtn" title="Traccia precedente (←)">|◀</button>
+      <button id="playPauseBtn" title="Play/Pausa (Spazio)">▶</button>
+      <button id="nextBtn" title="Traccia successiva (→)">▶|</button>
+      <span class="now" id="nowPlaying">—</span>
+    </div>
+  </div>
+
+  <aside>
+    <h2>Tracce<span class="count" id="totalCount"></span></h2>
+    <div class="tracks" id="trackList"></div>
+  </aside>
+</main>
+
+<script>
+// ============================================================
+//  >>> INCOLLA QUI L'ID DEL VIDEO YOUTUBE <<<
+//  Esempio: se il link è  https://youtu.be/dQw4w9WgXcQ
+//  oppure  https://www.youtube.com/watch?v=dQw4w9WgXcQ
+//  l'ID è:  dQw4w9WgXcQ
+// ============================================================
+const YOUTUBE_ID = "mbNtDUiPirQ";
+
+// === DATI INIETTATI DAL GENERATORE Qt (NON modificare) ===
+const DATA = {
+  "title": "Prova 2",
+  "videoFile": "Prova 2.MP4",
+  "groups": [],
+  "chapters": [
+    { "label": "S1 — 0-1 — 3 - L. BASIC #3 — ATTACCO#", "startMs": 0, "durationMs": 5000, "groupIdx": -1 },
+    { "label": "S1 — 8-10 — 3 - L. BASIC #3 — ATTACCO#", "startMs": 5000, "durationMs": 5000, "groupIdx": -1 },
+    { "label": "S2 — 1-1 — 3 - L. BASIC #3 — ATTACCO#", "startMs": 10000, "durationMs": 5000, "groupIdx": -1 },
+    { "label": "S2 — 17-17 — 3 - L. BASIC #3 — ATTACCO-", "startMs": 15000, "durationMs": 5000, "groupIdx": -1 },
+    { "label": "S2 — 17-19 — 3 - L. BASIC #3 — ATTACCO#", "startMs": 20000, "durationMs": 5000, "groupIdx": -1 }
+  ]
+};
+// =========================================================
+
+const trackListEl   = document.getElementById('trackList');
+const nowPlayingEl  = document.getElementById('nowPlaying');
+const trackCounter  = document.getElementById('trackCounter');
+const totalCount    = document.getElementById('totalCount');
+const prevBtn       = document.getElementById('prevBtn');
+const nextBtn       = document.getElementById('nextBtn');
+const playPauseBtn  = document.getElementById('playPauseBtn');
+const stopAtEndCb   = document.getElementById('stopAtEnd');
+const pageTitle     = document.getElementById('pageTitle');
+const videoError    = document.getElementById('videoError');
+const errId         = document.getElementById('errId');
+
+let player          = null;
+let playerReady     = false;
+let currentIdx      = -1;
+
+document.title = (DATA.title || 'Player') + ' — Player Montaggio';
+pageTitle.textContent = DATA.title || 'Montaggio';
+totalCount.textContent = ' (' + DATA.chapters.length + ')';
+errId.textContent = YOUTUBE_ID;
+
+renderTrackList();
+setCurrentIdx(-1);
+updatePlayBtn();
+
+// --- Caricamento IFrame Player API di YouTube ---
+(function loadYT() {
+  if (window.YT && window.YT.Player) { onYouTubeIframeAPIReady(); return; }
+  const tag = document.createElement('script');
+  tag.src = "https://www.youtube.com/iframe_api";
+  document.head.appendChild(tag);
+})();
+
+function onYouTubeIframeAPIReady() {
+  player = new YT.Player('ytplayer', {
+    width: '100%',
+    height: '100%',
+    videoId: YOUTUBE_ID,
+    playerVars: {
+      rel: 0,            // limita i video correlati a fine clip
+      modestbranding: 1, // (deprecato da YouTube, innocuo)
+      playsinline: 1,
+      controls: 1
+    },
+    events: {
+      onReady: onPlayerReady,
+      onStateChange: onPlayerStateChange,
+      onError: onPlayerError
+    }
+  });
+}
+// l'API cerca questa funzione nel global scope
+window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+
+function onPlayerReady() {
+  playerReady = true;
+  setInterval(tick, 200); // polling: sostituisce l'evento "timeupdate" del tag <video>
+}
+
+function onPlayerStateChange() { updatePlayBtn(); }
+
+function onPlayerError() { videoError.classList.add('show'); }
+
+// --- Ciclo di aggiornamento (200 ms) ---
+function tick() {
+  if (!playerReady || !player || typeof player.getCurrentTime !== 'function') return;
+  let t;
+  try { t = player.getCurrentTime(); } catch (e) { return; }
+  const tMs = t * 1000;
+  const idx = chapterIndexAtMs(tMs);
+  if (idx !== currentIdx) setCurrentIdx(idx);
+
+  if (stopAtEndCb.checked && idx >= 0 && idx < DATA.chapters.length - 1) {
+    const c = DATA.chapters[idx];
+    const endMs = c.startMs + c.durationMs;
+    if (tMs >= endMs - 60 && player.getPlayerState() === 1) { // 1 = PLAYING
+      player.seekTo(endMs / 1000, true);
+      player.pauseVideo();
+    }
+  }
+}
+
+function renderTrackList() {
+  trackListEl.innerHTML = '';
+  let lastGroup = -2;
+  DATA.chapters.forEach((c, i) => {
+    if (DATA.groups && DATA.groups.length > 0 && c.groupIdx !== lastGroup) {
+      const h = document.createElement('div');
+      h.className = 'group-header';
+      h.textContent = (c.groupIdx >= 0 && c.groupIdx < DATA.groups.length)
+        ? DATA.groups[c.groupIdx]
+        : 'Generale';
+      trackListEl.appendChild(h);
+      lastGroup = c.groupIdx;
+    }
+    const row = document.createElement('div');
+    row.className = 'track' + (i === 0 && c.groupIdx === -1 && /copertina/i.test(c.label) ? ' cover' : '');
+    row.dataset.idx = i;
+    row.innerHTML =
+      '<span class="num">' + (i + 1) + '</span>' +
+      '<span class="label"></span>' +
+      '<span class="dur">' + formatMs(c.durationMs) + '</span>';
+    row.querySelector('.label').textContent = c.label;
+    row.addEventListener('click', () => seekToChapter(i));
+    trackListEl.appendChild(row);
+  });
+}
+
+function chapterIndexAtMs(ms) {
+  for (let i = 0; i < DATA.chapters.length; i++) {
+    const c = DATA.chapters[i];
+    if (ms >= c.startMs && ms < c.startMs + c.durationMs) return i;
+  }
+  if (DATA.chapters.length > 0) {
+    const last = DATA.chapters[DATA.chapters.length - 1];
+    if (ms >= last.startMs) return DATA.chapters.length - 1;
+  }
+  return -1;
+}
+
+function setCurrentIdx(idx) {
+  currentIdx = idx;
+  trackListEl.querySelectorAll('.track').forEach((el) => {
+    el.classList.toggle('active', parseInt(el.dataset.idx, 10) === idx);
+  });
+  const active = trackListEl.querySelector('.track.active');
+  if (active) {
+    const r = active.getBoundingClientRect();
+    const pr = trackListEl.getBoundingClientRect();
+    if (r.top < pr.top || r.bottom > pr.bottom) active.scrollIntoView({ block: 'nearest' });
+  }
+  if (idx >= 0) {
+    const c = DATA.chapters[idx];
+    nowPlayingEl.innerHTML = '<b>' + (idx + 1) + '.</b> ' + escapeHtml(c.label);
+    trackCounter.textContent = (idx + 1) + ' / ' + DATA.chapters.length;
+  } else {
+    nowPlayingEl.textContent = '—';
+    trackCounter.textContent = '—';
+  }
+  prevBtn.disabled = (idx <= 0);
+  nextBtn.disabled = (idx < 0 || idx >= DATA.chapters.length - 1);
+}
+
+function updatePlayBtn() {
+  const playing = playerReady && player && typeof player.getPlayerState === 'function'
+    && player.getPlayerState() === 1;
+  playPauseBtn.textContent = playing ? '❚❚' : '▶';
+}
+
+function seekToChapter(i) {
+  if (i < 0 || i >= DATA.chapters.length) return;
+  if (!playerReady) return;
+  const c = DATA.chapters[i];
+  player.seekTo((c.startMs + 1) / 1000, true);
+  setCurrentIdx(i);
+  player.playVideo();
+}
+
+function gotoPrev() {
+  if (currentIdx > 0) seekToChapter(currentIdx - 1);
+  else if (currentIdx < 0 && DATA.chapters.length > 0) seekToChapter(0);
+}
+function gotoNext() {
+  if (currentIdx >= 0 && currentIdx < DATA.chapters.length - 1) seekToChapter(currentIdx + 1);
+}
+function togglePlay() {
+  if (!playerReady) return;
+  if (player.getPlayerState() === 1) player.pauseVideo();
+  else player.playVideo();
+}
+
+prevBtn.addEventListener('click', gotoPrev);
+nextBtn.addEventListener('click', gotoNext);
+playPauseBtn.addEventListener('click', togglePlay);
+
+document.addEventListener('keydown', (e) => {
+  if (e.target && /input|textarea/i.test(e.target.tagName)) return;
+  if (e.code === 'Space')      { e.preventDefault(); togglePlay(); }
+  else if (e.code === 'ArrowLeft'  && !e.shiftKey) { e.preventDefault(); gotoPrev(); }
+  else if (e.code === 'ArrowRight' && !e.shiftKey) { e.preventDefault(); gotoNext(); }
+  else if (e.code === 'Home')  { e.preventDefault(); seekToChapter(0); }
+  else if (e.code === 'End')   { e.preventDefault(); seekToChapter(DATA.chapters.length - 1); }
+});
+
+function formatMs(ms) {
+  const totalS = Math.round(ms / 1000);
+  const m = Math.floor(totalS / 60);
+  const s = totalS % 60;
+  if (m === 0) return s + 's';
+  return m + ':' + String(s).padStart(2, '0');
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+</script>
+
+</body>
+</html>
